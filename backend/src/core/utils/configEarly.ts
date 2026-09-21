@@ -3,8 +3,17 @@ import * as fs from "fs";
 import * as path from "path";
 
 export function readPortBeforeNestInit(): number {
-  const dbFilePath = path.join(process.cwd(), "db.sql");
-  if (!fs.existsSync(dbFilePath)) fs.writeFileSync(dbFilePath, "");
+  const dbFilePath = "/data/database/db.sql";
+  
+  // Ensure directory exists
+  const dbDir = path.dirname(dbFilePath);
+  if (!fs.existsSync(dbDir)) {
+    fs.mkdirSync(dbDir, { recursive: true });
+  }
+  
+  if (!fs.existsSync(dbFilePath)) {
+    fs.writeFileSync(dbFilePath, "");
+  }
 
   const db = new Database(dbFilePath, { create: true, strict: true });
   db.run("PRAGMA foreign_keys = ON;");

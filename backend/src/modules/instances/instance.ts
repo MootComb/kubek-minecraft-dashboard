@@ -476,13 +476,28 @@ export class ServerInstance implements IInstance {
     const blueprint = this.blueprint;
     const startup = blueprint?.startup;
     // Prefer a per-OS command when the blueprint ships one
-    const command =
+    let command =
       startup?.commandByPlatform?.[process.platform as KubekPlatform] ??
       startup?.command;
+      
     if (!blueprint || !command) {
       throw new Error(
         `Server ${this.serverId} has no blueprint launch command`,
       );
+    }
+
+    // Check if JVM_ARGS contains a full command
+    const jvmArgs = String(scope.JVM_ARGS || "").trim();
+    const isFullCommand = jvmArgs.startsWith('"') || 
+                          jvmArgs.startsWith("'") || 
+                          jvmArgs.includes("/bin/java") || 
+                          jvmArgs.includes("\\java") ||
+                          jvmArgs.includes(".exe");
+
+    if (isFullCommand && jvmArgs.length > 0) {
+      // Use JVM_ARGS as the full command
+      console.log(`[ServerInstance] Using full command from JVM_ARGS for ${this.serverId}`);
+      return this.blueprintResolver.substitute(jvmArgs, scope);
     }
 
     const version = this.blueprintResolver.javaVersion(blueprint, scope);

@@ -41,6 +41,14 @@ export const paper = {
   },
   variables: [
     {
+      key: "JVM_ARGS",
+      label: "JVM Arguments (Full Command)",
+      type: "string",
+      default: '"/data/java/jdk-17.0.19+10-jre/bin/java" -Dfile.encoding=UTF-8 -Xms1024M -Xmx4096M -XX:+UseG1GC -XX:+ParallelRefProcEnabled -XX:MaxGCPauseMillis=200 -jar server.jar nogui',
+      description: "Full Java command with all arguments",
+      userEditable: true,
+    },
+    {
       key: "GAME_VERSION",
       label: "Version",
       type: "enum",
@@ -64,13 +72,6 @@ export const paper = {
       type: "number",
       default: 512,
       rules: "required|min:256",
-      userEditable: true,
-    },
-    {
-      key: "JVM_ARGS",
-      label: "JVM Arguments",
-      type: "string",
-      default: "",
       userEditable: true,
     },
     {
@@ -119,8 +120,7 @@ export const paper = {
     ],
   },
   startup: {
-    command:
-      '"{{JAVA_BIN}}" -Dfile.encoding=UTF-8 -Xms{{XMS}}M -Xmx{{XMX}}M {{JVM_ARGS}} -jar server.jar nogui',
+    command: "{{JVM_ARGS}}",
     stop: {
       type: "command",
       value: "stop",

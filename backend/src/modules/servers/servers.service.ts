@@ -35,9 +35,12 @@ import { IUser } from "@shared/types/user.types";
 import fs from "fs";
 import { Jimp } from "jimp";
 import { join } from "path";
+import { ServerStatusStore } from "./server-status.store";
 
 @Injectable()
 export class ServersService implements OnModuleInit {
+  private readonly statusStore = new ServerStatusStore();
+
   constructor(
     private readonly serversRepo: ServersRepository,
     private readonly instancesRepo: InstancesRegistry,
@@ -55,19 +58,35 @@ export class ServersService implements OnModuleInit {
   ) {}
 
   /**
-   * On module initialization, set all servers to stopped status
+   * On module initialization, restore server statuses from file
    */
   onModuleInit() {
     const servers = this.serversRepo.findAll();
+    const savedStatuses = this.statusStore.getAll();
+    
     servers.forEach((server) => {
-      if (server.status !== ServerStatus.STOPPED) {
+      const savedStatus = savedStatuses.get(server.id);
+      
+      if (savedStatus && savedStatus !== ServerStatus.STOPPED) {
+        // Restore saved status
+        this.serversRepo.update(server.id, {
+          status: savedStatus as ServerStatus,
+        });
+        console.log(`[ServersService] Restored status for ${server.name}: ${savedStatus}`);
+        
+        // Auto-start if it was running
+        if (savedStatus === ServerStatus.RUNNING) {
+          console.log(`[ServersService] Auto-starting server: ${server.name}`);
+          void this.start(server.id);
+        }
+      } else if (server.status !== ServerStatus.STOPPED) {
         this.serversRepo.update(server.id, {
           status: ServerStatus.STOPPED,
         });
       }
     });
 
-    // Drop containers left over from a previous run, the panel cannot reattach to them
+    // Drop containers left over from a previous run
     void this.dockerService.removeOrphans().catch(() => {
       // non-fatal, the daemon may simply be unavailable
     });
@@ -221,6 +240,9 @@ export class ServersService implements OnModuleInit {
       "START_FAILED",
       "Failed to start",
     );
+    
+    // Save running status
+    this.statusStore.setStatus(serverId, ServerStatus.RUNNING);
   }
 
   /**
@@ -240,6 +262,9 @@ export class ServersService implements OnModuleInit {
       "STOP_FAILED",
       "Failed to stop",
     );
+    
+    // Save stopped status
+    this.statusStore.setStatus(serverId, ServerStatus.STOPPED);
   }
 
   /**
@@ -252,6 +277,9 @@ export class ServersService implements OnModuleInit {
 
     const instance = this.ensureInstance(server);
     await instance.kill();
+    
+    // Save stopped status after kill
+    this.statusStore.setStatus(serverId, ServerStatus.STOPPED);
     return;
   }
 
@@ -272,6 +300,9 @@ export class ServersService implements OnModuleInit {
       "RESTART_FAILED",
       "Failed to restart",
     );
+    
+    // Save running status after restart
+    this.statusStore.setStatus(serverId, ServerStatus.RUNNING);
   }
 
   /**
@@ -285,7 +316,8 @@ export class ServersService implements OnModuleInit {
     const properties = await instance.readServerProperties();
 
     if (!properties || properties === false) {
-      throw new NotFoundException("Server properties file not found");
+      console.log(`[ServersService] Server properties file not found for server ${serverId} (${server.name})`);
+      return {};
     }
 
     return properties as Record<string, any>;
@@ -492,6 +524,7 @@ export class ServersService implements OnModuleInit {
     }
 
     this.serversRepo.delete(serverId);
+    this.statusStore.setStatus(serverId, ServerStatus.STOPPED);
     this.broadcastServersList();
   }
 
@@ -530,6 +563,7 @@ export class ServersService implements OnModuleInit {
         await this.tearDownInstance(id);
         fs.rmSync(getServerPath(id), { recursive: true, force: true });
         this.serversRepo.delete(id);
+        this.statusStore.setStatus(id, ServerStatus.STOPPED);
         deleted.push(id);
       } catch (e: unknown) {
         failed.push({ id, reason: getErrorMessage(e) });

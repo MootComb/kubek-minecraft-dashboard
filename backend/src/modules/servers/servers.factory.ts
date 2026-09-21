@@ -87,6 +87,24 @@ export class ServersFactory {
   }
 
   /**
+   * Build default full JVM command for a server
+   * Uses JAVA_VERSION from variables to determine the Java path
+   */
+  private buildDefaultJvmCommand(variables: Record<string, any>): string {
+    // Get Java version from variables (user selected), default to 17
+    const javaVersion = variables.JAVA_VERSION || 17;
+    // Use the actual path structure: /data/java/{version}/jdk-{version}.0.19+10-jre/bin/java
+    const javaPath = `/data/java/${javaVersion}/jdk-${javaVersion}.0.19+10-jre/bin/java`;
+    
+    // Get memory settings from variables or defaults
+    const xmx = variables.XMX || 2048;
+    const xms = variables.XMS || 512;
+    
+    // Build the full command
+    return `"${javaPath}" -Dfile.encoding=UTF-8 -Xms${xms}M -Xmx${xmx}M -XX:+UseG1GC -XX:+ParallelRefProcEnabled -XX:MaxGCPauseMillis=200 -jar server.jar nogui`;
+  }
+
+  /**
    * Resolve the blueprint for a new server, validate its variables against the manifest,
    * create the DB row, then run the install pipeline
    */
@@ -111,6 +129,11 @@ export class ServersFactory {
       blueprint.manifest,
       props.variables,
     );
+
+    // Build default JVM_ARGS if not provided by user
+    if (!variables.JVM_ARGS || String(variables.JVM_ARGS).trim() === '') {
+      variables.JVM_ARGS = this.buildDefaultJvmCommand(variables);
+    }
 
     const server = this.servers.create({
       name: props.name,

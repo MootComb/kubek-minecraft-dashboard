@@ -22,7 +22,7 @@ interface MojangVersionDetail {
 
 @Injectable()
 export class JavaService {
-  private readonly javaDir = "./binaries/java";
+  private readonly javaDir = "/data/java";
 
   constructor(private readonly tasksService: TasksService) {}
 
@@ -466,7 +466,7 @@ export class JavaService {
    * Get path to Java managed by Kubek
    */
   async getManagedJavaPath(version: string): Promise<string | null> {
-    const javaDirectory = path.join(".", "binaries", "java", version);
+    const javaDirectory = path.join(this.javaDir, version);
     return await this.findJavaBinaryInDirectory(javaDirectory);
   }
 

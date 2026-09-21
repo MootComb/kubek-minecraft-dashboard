@@ -9,7 +9,8 @@ export class SqliteProvider implements OnModuleInit {
   private readonly dbFilePath: string;
 
   constructor() {
-    this.dbFilePath = path.join(process.cwd(), "db.sql");
+    // Use /data/database/db.sql for persistent storage
+    this.dbFilePath = path.join("/data/database", "db.sql");
   }
 
   onModuleInit(): void {
@@ -24,6 +25,12 @@ export class SqliteProvider implements OnModuleInit {
   }
 
   private ensureDatabaseFile() {
+    // Create directory if it doesn't exist
+    const dbDir = path.dirname(this.dbFilePath);
+    if (!fs.existsSync(dbDir)) {
+      fs.mkdirSync(dbDir, { recursive: true });
+    }
+    
     if (!fs.existsSync(this.dbFilePath)) {
       fs.writeFileSync(this.dbFilePath, "");
     }

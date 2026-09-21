@@ -4,7 +4,6 @@ import type {
   ServerStatus,
   ServerVariableValue,
 } from "@shared/types/server/server.types";
-import { randomUUID } from "crypto";
 import { SqliteProvider } from "../sqlite.provider";
 
 export abstract class IServersRepository {
@@ -44,8 +43,32 @@ export class ServersRepository implements IServersRepository {
     return row ? this.deserialize(row) : null;
   }
 
+  /**
+   * Generate server ID from name:
+   * - Convert to lowercase
+   * - Replace spaces and special chars with hyphens
+   * - Remove any non-alphanumeric chars except hyphens
+   * - Collapse multiple hyphens
+   * - Trim hyphens from ends
+   */
+  private generateIdFromName(name: string): string {
+    return name
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9]+/g, '-')  // Replace non-alphanumeric with hyphen
+      .replace(/^-+|-+$/g, '');      // Remove leading/trailing hyphens
+  }
+
   create(server: Omit<IServer, "id">): IServer {
-    const id = randomUUID();
+    // Generate ID from server name
+    const id = this.generateIdFromName(server.name);
+    
+    // Check if ID already exists (name collision after normalization)
+    const existing = this.findById(id);
+    if (existing) {
+      throw new Error(`Server ID "${id}" already exists (conflict with server "${existing.name}"). Please use a different name.`);
+    }
+
     const stmt = this.sqlite.connection.prepare(`INSERT INTO servers
                                                  (id, name, status, restartEnabled, restartAttempts, folderId, blueprintId, blueprintVersion, variables, runtimeKind)
                                                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
@@ -68,6 +91,37 @@ export class ServersRepository implements IServersRepository {
   update(id: string, updates: Partial<IServer>): IServer | null {
     const existing = this.findById(id);
     if (!existing) return null;
+
+    // If name is being updated, check for ID conflicts
+    if (updates.name && updates.name !== existing.name) {
+      const newId = this.generateIdFromName(updates.name);
+      if (newId !== id) {
+        const conflict = this.findById(newId);
+        if (conflict) {
+          throw new Error(`Cannot rename: server ID "${newId}" already exists (conflict with server "${conflict.name}")`);
+        }
+        // Update ID along with name
+        const updated = { ...existing, ...updates };
+        // Delete old record and insert with new ID
+        this.delete(id);
+        const stmt = this.sqlite.connection.prepare(`INSERT INTO servers
+                                                     (id, name, status, restartEnabled, restartAttempts, folderId, blueprintId, blueprintVersion, variables, runtimeKind)
+                                                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
+        stmt.run(
+          newId,
+          updated.name,
+          updated.status,
+          updated.restartOnError.enabled ? 1 : 0,
+          updated.restartOnError.attempts,
+          updated.folderId ?? null,
+          updated.blueprintId,
+          updated.blueprintVersion ?? null,
+          JSON.stringify(updated.variables ?? {}),
+          updated.runtimeKind ?? null,
+        );
+        return this.findById(newId);
+      }
+    }
 
     const updated = { ...existing, ...updates };
     const stmt = this.sqlite.connection.prepare(`UPDATE servers SET

@@ -66,6 +66,7 @@ const Console = () => {
   const { t } = useTranslation("modules.console");
   const scrollerRef = useRef<HTMLDivElement>(null);
   const stickToBottomRef = useRef(true);
+  const isSelectingRef = useRef(false);
 
   const [log, setLog] = useState<IInstanceLog[]>([]);
   const { selectedServer } = useServerStore();
@@ -190,7 +191,19 @@ const Console = () => {
     stickToBottomRef.current = distanceFromBottom <= AUTOSCROLL_THRESHOLD_PX;
   }, []);
 
+  useEffect(() => {
+    const onSelectionChange = () => {
+      const sel = window.getSelection();
+      isSelectingRef.current = !!sel && sel.toString().length > 0;
+    };
+    document.addEventListener("selectionchange", onSelectionChange);
+    return () => {
+      document.removeEventListener("selectionchange", onSelectionChange);
+    };
+  }, []);
+
   useLayoutEffect(() => {
+    if (isSelectingRef.current) return;
     if (!stickToBottomRef.current || log.length === 0) return;
     virtualizer.scrollToIndex(log.length - 1, { align: "end" });
   }, [log.length, virtualizer]);

@@ -14,19 +14,50 @@ services:
     restart: unless-stopped
 
     environment:
-      - PORT=8000
+      - PORT=50018
       - TZ=UTC
       # - FTP_PORT=21        # built-in FTP server (off unless you enable it in the UI)
       # - DOCKER_HOST=unix:///var/run/docker.sock  # override the docker socket location
 
     ports:
-      - "8000:8000"          # Web panel (HTTP + WebSocket)
-      # - "21:21"            # FTP control port (optional)
+      - "50018:50018"            # Web panel (HTTP + WebSocket)
+      # - "21:21"                # FTP control port (optional)
       # - "1024-1048:1024-1048"  # FTP passive range — narrow it in the FTP settings first
-      # - "25565:25565"      # one Minecraft server — add a line per server you create
+      - "25565:25565/tcp"        # MINECRAFT VELOCOTY PROXY
+      - "25565:25565/udp"        #  RAKNETIFY
+
+      - "25566:25566/udp"        #  PLASMO VOICE
+      - "25567:25567/udp"        #  PLASMO VOICE
+      - "25568:25568/udp"        #  PLASMO VOICE
+      - "25569:25569/udp"        #  PLASMO VOICE
+      - "25570:25570/udp"        #  PLASMO VOICE
+
+      - "50019:80"               # eaglexserver
+      - "24454:24454/tcp"        # PLASMO VOICE
+      - "24454:24454/udp"        # PLASMO VOICE
+      - "19132:19132/tcp"        # TCP BEDROCK GEYSER PLUS
+      - "19132:19132/udp"        # UDP BEDROCK GEYSER
+    
+    user: "1000:1000"
 
     volumes:
-      - kubek-data:/data
+      - ./dist:/app/dist
+      - ./tmp:/app/tmp
+
+      - ./shared:/app/shared
+      - ./scripts:/app/scripts:ro
+      - ./tsconfig.json:/app/tsconfig.json:ro
+
+      - ./frontend/src:/app/frontend/src:ro
+      - ./frontend/public:/app/frontend/public:ro
+      - ./frontend/package.json:/app/frontend/package.json:ro
+      - ./frontend/bun.lock:/app/frontend/bun.lock:ro
+      - ./frontend/tsconfig.json:/app/frontend/tsconfig.json:ro
+      - ./backend/src:/app/backend/src:ro
+      - ./backend/package.json:/app/backend/package.json:ro
+      - ./backend/bun.lock:/app/backend/bun.lock:ro
+      - ./backend/tsconfig.json:/app/backend/tsconfig.json:ro
+      - ../data:/data
       # Or bind-mount to keep files on the host:
       # - ./data:/data
       # Run Minecraft servers in Docker (serverRuntime auto/docker): mount the host docker socket.
@@ -37,6 +68,3 @@ services:
 
     # Linux: expose all panel + server ports automatically (remove `ports` above if used)
     # network_mode: host
-
-volumes:
-  kubek-data:

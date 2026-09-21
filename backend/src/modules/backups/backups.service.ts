@@ -29,7 +29,7 @@ import { BackupsRepository } from "./repositories/backups.repository";
 @Injectable()
 export class BackupsService {
   private readonly logger = new Logger(BackupsService.name);
-  private readonly backupsPath = resolve("./backups");
+  private readonly backupsPath = "/data/backups";
 
   // Security limits
   private readonly MAX_BACKUP_SIZE = 10 * 1024 * 1024 * 1024; // 10GB

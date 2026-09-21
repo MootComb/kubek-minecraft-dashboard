@@ -8,7 +8,6 @@ import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
 import { apiReference } from "@scalar/nestjs-api-reference";
 import { AppModule } from "./app.module";
 
-// Handle all exceptions and rejections (globally)
 process.on("unhandledRejection", (reason) => {
   console.error("[Process] Unhandled promise rejection:", reason);
 });
@@ -19,10 +18,8 @@ process.on("uncaughtException", (error) => {
 async function bootstrap() {
   Startup.initTerminal();
 
-  // Port must be read before Nest init so listen() can use it
   const configuredPort = readPortBeforeNestInit();
 
-  // Run the intro to completion before Nest boots
   await Startup.runIntro();
 
   const app = await NestFactory.create(AppModule, {
@@ -70,9 +67,39 @@ async function bootstrap() {
   }
 
   app.enableCors();
+  app.enableShutdownHooks();
 
-  await app.listen(process.env.PORT ?? configuredPort);
+  const server = await app.listen(process.env.PORT ?? configuredPort);
   await Startup.serverStarted(configuredPort);
+
+  let shuttingDown = false;
+  const gracefulShutdown = async (signal: string) => {
+    if (shuttingDown) return;
+    shuttingDown = true;
+
+    console.log(`[Process] Received ${signal}, starting graceful shutdown...`);
+    try {
+      await new Promise<void>((resolve) => {
+        server.close((err) => {
+          if (err && (err as any).code !== "ERR_SERVER_NOT_RUNNING") {
+            console.error("[Process] server.close error:", err);
+          }
+          resolve();
+        });
+      });
+
+      await app.close();
+      console.log("[Process] Application closed successfully");
+      process.exit(0);
+    } catch (error) {
+      console.error("[Process] Error during shutdown:", error);
+      process.exit(1);
+    }
+  };
+
+  process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
+  process.on("SIGINT", () => gracefulShutdown("SIGINT"));
+  process.on("SIGQUIT", () => gracefulShutdown("SIGQUIT"));
 }
 
 bootstrap();

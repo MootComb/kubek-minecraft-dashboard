@@ -23,7 +23,7 @@ const BACKUP_SUFFIX = ".migrated-backup";
 // One-time import of legacy Kubek data
 @Injectable()
 export class LegacyMigrationService implements OnModuleInit {
-  private readonly root = process.cwd();
+  private readonly root = "/data";
 
   constructor(
     private readonly sqlite: SqliteProvider,

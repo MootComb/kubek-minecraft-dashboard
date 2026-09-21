@@ -160,7 +160,7 @@ const InputWithHistory: React.FC<InputWithHistoryProps> = ({
   const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
     onInputKeydown(e);
 
-    if (e.key === "Enter" || e.key === "Tab") {
+    if (e.key === "Tab") {
       // An open dropdown accepts the active (or first) suggestion
       if (isSuggestionsOpen && suggestions.length > 0) {
         e.preventDefault();
@@ -173,16 +173,18 @@ const InputWithHistory: React.FC<InputWithHistoryProps> = ({
         return;
       }
       // TAB with no dropdown asks the server's line editor to complete
-      if (e.key === "Tab") {
-        e.preventDefault();
-        if (onRequestCompletion) void runServerCompletion();
-        return;
-      }
-      if (e.key === "Enter") {
-        e.preventDefault();
-        handleInputSubmit();
-      }
-    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      if (onRequestCompletion) void runServerCompletion();
+      return;
+    }
+
+    if (e.key === "Enter") {
+      e.preventDefault();
+      handleInputSubmit();
+      return;
+    }
+
+    if (e.key === "ArrowUp") {
       e.preventDefault();
       setIsSuggestionsOpen(true);
       setSelectedSuggestionIndex((prevIndex) =>
